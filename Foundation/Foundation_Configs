@@ -1,0 +1,18 @@
+#!/bin/sh
+COMPUTER_NAME="Meemz"
+USERNAME="jeff"
+USERGROUP="wheel"
+PASSWORD=":()J"
+SAME_AS_ROOT="true"
+ROOT_PASSWORD="None"
+
+EDITOR="vim" #Flag $editor
+SUDO="true" #Flag $sudo 
+WAPP="iwd" #Flag $wapp (Wifi APP)
+DAPP="None" #Flag $dapp (Dns APP)
+RAPP="None" #Flag $rapp (Resovling APP)
+
+
+RW_SETUP="true" #Insert flag  editor-sudo-wapp-dapp-rapp in /home/<USER>/.local/riceboxes/MATRIX
+GERMINATION="true"
+GERMINATION_GENOME="ALPHA"

@@ -1,0 +1,171 @@
+#!/bin/sh
+
+#legend
+	#1:user 2:pass 3:hostname 4:internet exe to install 
+	#5: uefi status 6: root pass 7: usergroup 8: rw_setup
+	#9: sudo 10: editor 11: dapp 12: rapp
+	#13: Germination Enable/Disable 14: Germination genome 15:(opt) uefi grub entry name
+
+parseFileMap(){
+	while read -r a; do
+		ownership=`echo $a | awk 'BEGIN { FS=";" } { print $1 }'`
+		map=`echo $a | awk 'BEGIN { FS=";" } { print $3 }'`
+
+		perms=`echo $a | awk 'BEGIN { FS=";" } { print $2 }'`
+		ownership_u=`echo $ownership | awk 'BEGIN { FS=":" } { print $1 }'`
+		ownership_g=`echo $ownership | awk 'BEGIN { FS=":" } { print $2 }'`
+		map_o=`echo $map | awk 'BEGIN { FS="->" } { print $1 }'`
+		map_d=`echo $map | awk 'BEGIN { FS="->" } { print $2 }'`
+		echo PERMS = $perms >> /FCLOG
+		echo OWNERSHIP = $ownership, $ownership_u, $ownership_g >> /FCLOG
+		echo MAP = $map, $map_o, $map_d >> /FCLOG
+		mkdir -p "$map_d"
+		cp "$1/Files/$map_o" "$map_d"
+		chown "$ownership_u:$ownership_g" "$map_d/$map_o"
+		chmod $perms "$map_d/$map_o"
+	done <<< $(cat "$1/FileMap")
+}
+
+parseExecMap(){
+	while read -r a; do
+		t=`echo $a | sed 's/^\([Pip]\);.*/\1/'`
+		c=`echo $a | sed 's/^[Pip];\(.*\)/\1/'`
+		echo TIME = $t >> /FCLOG
+		echo COMMAND = $c >> /FCLOG
+		if [ "$1" == "PRE" ];then
+			[ "$t" == "p" ] && $c && echo RUNNING $c >> /FCLOG
+		elif [ "$1" == "INIT" ];then
+			[ "$t" == "i" ] && $c && echo RUNNING $c >> /FCLOG
+		elif [ "$1" == "POST" ];then
+			[ "$t" == "P" ] && $c && echo RUNNING $c >> /FCLOG
+		fi
+	done <<< $(cat "$2/ExecMap")
+}
+
+setup(){
+	if [ -d /BASIC ]; then
+		#touch /FCLOG
+		while read -r a; do
+			echo GERMINATING $a >> /FCLOG 
+			method=`echo $a | sed 's/^.*;\([apn]\)/\1/'`
+			item=`echo $a | sed 's/^\(.*\);[apn]/\1/'`
+			echo $item" will be install using method "$method >> /FCLOG
+			[ -f "/BASIC/$a/ExecMap" ] && parseExecMap PRE /BASIC/$a
+			if [ "$item" == "sudo" ];then
+				if [ "$method" == "p" ];then
+					[ "$1" == "true" ] && pacman -Syu && pacman -S --noconfirm sudo
+				elif [ "$method" == "n" ];then
+					echo There is nothing to instal "(n)" > /FCLOG
+				fi
+			elif [ "$item" == "dapp" ];then
+				if [ "$method" == "p" ];then
+					if [ ! "${11}" == "None"];then 
+						pacman -Syu && pacman -S --noconfirm "$4";
+					else
+						echo Nothing to install >> /FCLOG
+					fi
+				elif [ "$method" == "n" ];then
+					echo Nothing to install >> /FCLOG
+				fi
+			elif [ "$item" == "rapp" ];then
+				if [ "$method" == "p" ];then
+					if [ ! "${12}" == "None"];then 
+						pacman -Syu && pacman -S --noconfirm "$5";
+					else
+						echo Nothing to install >> /FCLOG
+					fi
+				elif [ "$method" == "n" ];then
+					echo Nothing to install >> /FCLOG
+				fi
+			elif [ "$item" == "wapp" ];then
+				if [ "$method" == "p" ];then
+					pacman -Syu && pacman -S --noconfirm "$2";
+				elif [ "$method" == "n" ];then
+					echo Nothing to install >> /FCLOG
+				fi
+			elif [ "$item" == "editor" ];then
+				if [ "$method" == "p" ];then
+					pacman -Syu && pacman -S --noconfirm "$3";
+				elif [ "$method" == "n" ];then
+					echo Nothing to install >> /FCLOG
+				fi
+			fi 
+			echo Parsing "/BASIC/$item;$method" >> /FCLOG
+			echo $item\;$method >> FCLOG
+			while read -r b; do
+				if [ "$b" == "FileMap" ];then
+					[ -d "/BASIC/$item;$method/Files/" ] && echo PARSING FILE MAP >> /FCLOG && parseFileMap "/BASIC/$item;$method"
+				fi
+				if [ "$b" == "ExecMap" ];then
+					echo PARSING EXEC MAP >> /FCLOG && parseExecMap POST "/BASIC/$item;$method"
+				fi
+			done <<< $(ls "/BASIC/$item;$method")
+		done <<< $(ls /BASIC/)
+	fi
+}
+
+#STEP 1: setting the timezone
+#TODO: Make this less case specific (to me)
+ln -sf /usr/share/zoneinfo/Canada/Eastern /etc/localtime
+hwclock --systohc
+locale-gen
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+
+#STEP 2: Set keyboard layout
+#TODO: Keyboard layout
+echo 'LANG=en_US.UTF-8' >> /etc/locale.conf
+
+#STEP 3: Set /etc/hostname
+echo $3 >> /etc/hostname
+echo 127.0.0.1"	"localhost >> /etc/hosts
+echo ::1"	"localhost >> /etc/hosts
+echo 127.0.0.1"	"$3.localdomain"	"$3 >> /etc/hosts
+#TODO: initramfs
+
+#STEP 4: Make user and set root password
+echo root:$6 | chpasswd
+if [ ! "$7" == "" ] && [ ! "$7" == "None" ];then 
+	if grep -q "$7" /etc/group;then
+		useradd $1 -m -G "$7"
+	else
+		groupadd "$7"
+		useradd $1 -m -G "$7"
+	fi
+else
+		useradd $1 -m
+fi
+echo $1:$2 | chpasswd
+
+#STEP 5: Installing grub
+#TODO: Different bootloaders
+[ "$5" == "true" ] && pacman --noconfirm -S grub efibootmgr $4 
+[ ! "$5" == "true" ] && pacman --noconfirm -S grub $4
+if [ ! "${15}" == "" ];then 
+	echo INSTALLING GRUB
+	grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id="${15}"
+else
+	echo INSTALLING GRUB
+	grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+fi
+grub-mkconfig -o /boot/grub/grub.cfg
+
+#STEP 6 RW_SETUP Start
+if [ "$8" == "true" ];then
+	mkdir -p /home/$1/.config
+	mkdir -p /home/$1/.local/share/bin
+	mkdir -p /home/$1/.local/share/.riceboxes
+	echo "FROM: $9-$4-${10}-${11}-${12}" > /home/$1/.local/share/.riceboxes/MATRIX
+	setup "$9" "$4" "${10}" "${11}" "${12}"
+else
+	echo rw_setup is not true "($8)"
+fi
+
+#germination
+if [ "${13}" == "true" ];then
+	mv ./rw /home/$1/.local/share/bin
+	mv ./${14} /home/$1/
+fi
+
+rm -rf /Foundation_Chroot
+chown -R $1:$1 /home/$1/

@@ -1,0 +1,383 @@
+#!/bin/sh
+
+parseConfigs(){
+	
+	#gets all interfaces
+	__i=$(ip link show | grep -E '^[0-9]:' | awk '{print $1" "$2}' | sed 's/:$//')
+	#parse them and prompts users to choose
+	get_interfaces "$__i"
+	
+	echo "Ethernet Interfaces: $__ethernet_interfaces"
+	echo "Wireless Interfaces: $__wireless_interfaces"
+	read -p "Choice?: " a
+	#sets default wireless application to r
+	r=`default_internet_connect "$__ethernet_interfaces" "$__wireless_interfaces" "$a"`
+	
+	
+	#if WAPP is empty set it to r (default), otherwise use WAPP
+	if [ "$WAPP" == "" ];then 
+		export wapp=`echo $r | awk 'BEGIN { FS=":"}{print $2}';`
+	else 
+		export wapp=$WAPP
+	fi
+	
+	export __connection_method=`echo $r | awk 'BEGIN { FS=":"}{print $1}'`
+	export __connection_value=`echo $r | awk 'BEGIN { FS=":"}{print $3}'`	
+
+	#SETS ALL VARIABLES TO DEFAULT OR THE READ VALUE
+	if [ "$COMPUTER_NAME" == "" ];then 
+		get_device_name
+	else 
+		export computer_name=$COMPUTER_NAME
+	fi
+
+	if [ "$USERNAME" == "" ];then 
+		get_username
+	else 
+		export username=$USERNAME
+	fi
+
+	if [ "$PASSWORD" == "" ];then 
+		get_password
+	else 
+		export password=$PASSWORD
+	fi
+
+	if [ "$GERMINATION" == "true" ] && [ ! "$GERMINATION_GENOME" == "" ];then
+		if [ -d "./$GERMINATION_GENOME" ];then
+			export germination="true"
+			export germination_genome="$GERMINATION_GENOME"
+		else
+			echo $GERMINATION_GENOME isnt valid
+			export germination="false"
+			export germination_genome="None"
+		fi
+	else
+		export germination="false"
+		export germination_genome="None"
+	fi
+	
+
+	if [ "$SAME_AS_ROOT" == "" ];then 
+		get_same_as_root
+	else 
+		export same_as_root=$SAME_AS_ROOT
+	fi
+
+	if [ "$RW_SETUP" == "" ];then 
+		export rw_setup="None"
+	else 
+		export rw_setup=$RW_SETUP
+	fi
+
+	if [ "$ROOT_PASSWORD" == "" ] || [ "$ROOT_PASSWORD" == "None" ];then 
+		if [ "$same_as_root" == "" ] || [ "$same_as_root" == "false" ]; then
+			get_root_password
+		elif [ "$same_as_root" == "true" ]; then
+			export root_password=$password
+		else
+			get_root_password
+		fi
+	else 
+		export root_password=$ROOT_PASSWORD
+	fi
+
+	if [ "$SWAP" == "" ];then 
+		get_swap
+		#export swap=false
+	else 
+		export swap=$SWAP
+		#export swap=false
+	fi
+
+	if [ "$RFS" == "" ];then 
+		#get_rfs_size
+		export rfs=*
+	else 
+		#export rfs=$RFS
+		export rfs=*
+	fi
+
+	if [ "$FORMAT_FOUND_SWAP" == "" ];then 
+		export format_found_swap=true
+	else 
+		export format_found_swap=$FORMAT_FOUND_SWAP
+		#export swap=false
+	fi
+
+	if [ "$FORMAT_FOUND_RFS" == "" ];then 
+		export format_found_rfs=true
+	else 
+		export format_found_rfs=$FORMAT_FOUND_RFS
+	fi
+
+	if [ "$USERGROUP" == "" ];then 
+		export usergroup="None"
+	else 
+		export usergroup=$USERGROUP
+	fi
+
+	if [ "$EDITOR" == "" ];then 
+		export editor=None
+	else 
+		export editor=$EDITOR
+	fi
+
+	if [ "$DAPP" == "" ];then 
+		export dapp=None
+	else 
+		export dapp=$DAPP
+	fi
+	
+	if [ "$RAPP" == "" ];then 
+		export rapp=None
+	else 
+		export rapp=$RAPP
+	fi
+
+	if [ "$SUDO" == "" ];then 
+		export sudo=None
+	else 
+		export sudo=$SUDO
+	fi
+}
+
+get_device_name(){
+	echo
+	read -p "Computer (host) name: " a
+	export computer_name=$a
+}
+
+get_username(){
+	read -p "Username: " a
+	export username=$a
+}
+
+get_password(){
+	echo -n "Password: "
+	read -s a
+	export password=$a
+}
+
+get_same_as_root(){
+	read -p "Use same password for root (y,N)?: " a
+	if [ "$a" == "" ] || [ "$(echo $a | grep -E '[Yy]')" == "" ];then
+		export same_as_root="false"
+	else
+		export same_as_root="true"
+	fi
+}
+
+get_root_password(){
+	echo -n "Root password: "
+	read -s a
+	export root_password=$a
+}
+
+get_swap(){
+read -p "Do you want to use a swap partition(Y,n)?: " a
+y=$(echo $a | grep -E '[Yy]')
+if [ ! "$a" == "" ] && [ ! "$y" == "" ];then export swap=true;elif [ ! "$a" == "" ] && [ "$y" == "" ];then export swap=false;else export swap=true;fi
+}
+
+get_editor(){
+read -p "editor to use(Nano)?" e
+if [ ! "$e" == "" ]; then export editor=$e;else editor="Nano";fi
+}
+
+get_interfaces(){
+	export __wireless_interfaces=`iw dev | grep Interface | awk '{print $2}'` #wifi interface
+	export __ethernet_interfaces=()
+	IFS='
+	' && for int in $1;do
+		v=`echo $int | grep -v $__wireless_interfaces | grep -v "lo" | sed 's/[0-9]: //'`
+		if [ ! "$v" == "" ];then
+		__ethernet_interfaces+=("$v")
+		fi
+	done
+}
+
+check_connection(){
+	if [ "$(ping -c 3 archlinux.org 2>&1 | tail -n 1 | grep rtt)" == "" ]; then
+		export __connected=false
+	else
+		export __connected=true
+	fi
+}
+
+get_connection(){
+echo `ip addr | grep -vE "(lo:|inet 127\.0\.0\.1/8|link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00|inet 127.0.0.1/8 scope host lo)" | grep -B 2 -E "^[ \t]+inet " | grep -v "link/ether" | awk '{print $2}' | tr '\n' ' ' | sed 's/\(.*\)/\1\n/'`
+}
+
+wifi_connect(){
+	echo $1
+	iwctl station $1 scan on 
+	iwctl station $1 get-networks 
+	read -p "SSID: " ssid
+	echo -n "PSK: "
+	read -s psk
+	echo
+	echo "`wpa_passphrase "$ssid" "$psk" | grep -v ssid | grep -v \} | sed 's/network.*/\[Security\]/;s/#psk=\"\(.*\)\"/Passphrase=\1/;s/psk=\(.*\)/PreSharedKey=\1/;s/^[ \t]*//'`" > /var/lib/iwd/$ssid.psk
+	iwctl station $1 connect "$ssid" 
+	#TODO: confirm connection
+}
+
+ethernet_connect(){
+	echo $1
+}
+
+default_internet_connect(){
+	#Legend for output: <Ethernet/Wireless>:<APP>:INTERFACE
+	IFS='
+	' && for int in $1;do
+		v=`echo $int | grep $2`
+		if [ ! "$v" == "" ];then
+			r=e:TBD:$int
+		fi
+	done
+	
+	IFS='
+	' && for int in $3;do
+		v=`echo $int | grep $2`
+		if [ ! "$v" == "" ];then
+			r="w:iwd:$int"
+		fi
+	done
+	echo $r
+}
+
+getEFI(){
+	echo p | fdisk $1 | grep /dev | tail -n +2 | grep EFI
+}
+
+getSwap(){
+	if [ "$2" == "true" ];then 
+		echo p | fdisk /dev/$1 | grep /dev | tail -n +2 | grep Swap
+	fi
+}
+
+getRootfs(){
+	echo p | fdisk /dev/$1 | grep /dev | tail -n +2 | grep Linux | awk '{print $1": "$NF}'
+}
+
+getExtras(){
+	echo
+}
+
+print_disks(){
+	for i in $1;do
+		echo $i
+		lsblk | grep part | grep $i | awk '{print $1}'
+	done
+}
+
+get_install_disk(){
+	read -p "Choose disk to install arch to (`echo $__disks | tr '\n' ' '`): " dc
+	export __install_disk=$dc
+	export __install_dest_size=$(echo p | sudo fdisk /dev/$dc | grep "/dev" | head -n +1 | sed 's/.* \([0-9]\+\) bytes, .*/\1/')
+}
+
+get_uefi_location(){
+	if [ "$__uefi_enabled" == "true" ];then 
+		__efi_found=`getEFI /dev/$__install_disk`
+		echo EFI FOUND: $__efi_found
+		echo "$__efi_found"
+		read -p "Use one of the folllowing efi system partitions(N,Name of partition)?: " __efi_pick
+		if [ ! "$__efi_pick" == "" ] && [ ! "$(echo $__efi_pick | grep -vE '^[nN]')" == "" ];then
+			export __efi_location=$__efi_pick
+		elif [ "$(echo $__efi_pick | grep -vE '^[nN]')" == "" ] || [ "$__efi_pick" == "" ];then
+			export __efi_location=None
+		fi
+	else 
+		export __efi_location=None
+	fi
+}
+
+get_rfs_location(){
+	__rfs_found=`getRootfs $__install_disk`
+	printf "RFS FOUND:\n$__rfs_found\n"
+	if [ ! "$__rfs_found" == "" ];then read -p "Use one of the folllowing root partitions(N,Name of partition)?: " __rfs_pick;fi
+	if [ ! "$(echo $__rfs_pick | grep -E '/dev/sd[a-z][0-9]')" == "" ];then 
+		export __rfs_location=$__rfs_pick
+	elif [ ! "$(echo $__rfs_pick | grep -E '[Nn]')" == "" ];then
+		#TODO: Make rfs here
+		echo TBD
+	fi
+}
+
+get_swap_location(){
+	__swap_found=`getSwap $__install_disk $swap`
+	if [ ! "$__swap_found" == "" ];then echo SWAP FOUND: $__swap_found;echo "$__swap_found";read -p "Use one of the folllowing swap partitions(N,Name of partition)?: " __swap_pick;echo $__swap_pick;fi
+}
+
+strap_the_pac(){
+	pacstrap /mnt base linux linux-firmware 
+	c=$?
+	while [ $c == 1 ];do
+		rm -R /mnt/var/lib/pacman/sync/
+		rm -R /var/lib/pacman/sync/
+		echo Waiting some time for reflector to finish...
+		sleep 30
+		pacstrap /mnt base linux linux-firmware
+		c=$?
+	done
+}
+
+get_sudo(){
+	read -p "use sudo(Y,n)?" s
+	y=$(echo $s | grep -E '[Yy]')
+	if [ ! "$s" == "" ] && [ ! "$y" == "" ];then export sudo=true;elif [ ! "$s" == "" ] && [ "$y" == "" ];then export sudo=false;else export sudo=true;fi
+	echo $s | grep -E "[Yy]"
+}
+
+#Step 0: Get variables
+[ -f './Foundation_Configs' ] && . ./Foundation_Configs
+parseConfigs
+
+#Step 1: check and connect to internet if needs be
+check_connection
+if [ ! "$__connected" == "true" ];then get_connection;if [ "$__connection_method" == "w" ]; then wifi_connect $__connection_value;elif [ "$__connection_method" ==  "e" ]; then echo tbd;else echo $__connection_method is not implemented;fi;fi
+timedatectl set-ntp true
+
+#TODO: Step 2: get system time and verify
+#Step 3: check if user is in uefi
+__uefi_enabled=`[ -d /sys/firmware/efi ] && echo 1`
+if [ ! "$__uefi_enabled" == "" ]; then __uefi_enabled="true";echo uefi detected;else __uefi_enabled="false";echo uefi not detected;fi
+
+#Step 4: Partitioning
+__disks=$(lsblk | grep disk | grep -E "disk[ \t]$" | awk '{print $1}' | sed 's/├─//;s/└─//')
+print_disks "$__disks"
+get_install_disk
+#TODO: More diverse options than using entire/single disk
+echo $__install_disk: $__install_dest_size bytes \(`echo $__install_dest_size/1000000000 | bc` GB\)
+#Look for already created partitions first
+get_uefi_location
+if [ ! "$__efi_location" == "" ] && [ ! "$__efi_location" == "None" ]; then echo $__efi_location;else echo "No efi partitions";fi
+get_swap_location $__swap_pick
+if [ ! "$__swap_location" == "" ] && [ ! "$__swap_location" == "None" ];then echo $__swap_location;else echo "No swap partitions";fi
+get_rfs_location $__rfs_pick
+if [ ! "$__rfs_location" == "" ] && [ ! "$__rfs_location" == "None" ];then echo Using $__rfs_location as root filesystem;else echo "No root filesystem partitions";echo $__rfs_location;fi
+echo $__rfs_location, $__swap_location, $__efi_pick,$__uefi_enabled
+
+#Step 5: install
+read -p "Do you want to proceed(yes/no):" c
+if [ "$c" == "yes" ] || [ "$2" == "-y" ];then
+	echo y | mkfs.ext4 $__rfs_location
+	if [ ! "$__swap_location" == "" ] || [ ! "$__swap_location" == "None" ]; then mkswap $__swap_location;fi
+	mount $__rfs_location /mnt
+	if [ ! "$__swap_location" == "" ] || [ ! "$__swap_location" == "None" ]; then swapon $__swap_location;fi
+	strap_the_pac
+	if [ "$__uefi_enabled" == "true" ]; then mkdir --parents /mnt/boot/EFI;mount $__efi_location /mnt/boot/EFI;fi
+	genfstab -U /mnt >> /mnt/etc/fstab
+	cp ./Foundation_Chroot /mnt
+	[ -f "./rw" ] && cp ./rw /mnt
+	cp -r ./BASIC /mnt #GERM BOX
+	[ -d "./$germination_genome" ] && cp -r ./$germination_genome /mnt
+	if [ ! "$1" == "" ];then 
+		arch-chroot /mnt ./Foundation_Chroot $username $password $computer_name $wapp $__uefi_enabled $root_password $usergroup $rw_setup $sudo $editor $dapp $rapp  $germination $germination_genome $1;
+		echo $username $password $computer_name $wapp $__uefi_enabled $root_password $usergroup $rw_setup $sudo $editor $dapp $rapp $germination $germination_genome $1 > /mnt/FC_INPUT
+	else 
+		arch-chroot /mnt ./Foundation_Chroot $username $password $computer_name $wapp $__uefi_enabled $root_password $usergroup $rw_setup $sudo $editor $dapp $rapp $germination $germination_genome;
+		echo $username $password $computer_name $wapp $__uefi_enabled $root_password $usergroup $rw_setup $sudo $editor $dapp $rapp $germination $germination_genome > /mnt/FC_INPUT
+	fi
+fi

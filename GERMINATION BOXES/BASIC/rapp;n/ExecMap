@@ -1,0 +1,1 @@
+P;systemctl enable systemd-resolved

@@ -1,0 +1,5 @@
+#!/bin/sh
+mkdir ../AIP-$1
+cp -r ../Foundation/Foundation* ../AIP-$1/
+cp -r ../GERMINATION\ BOXES/BASIC ../AIP-$1
+cp ../rw ../AIP-$1/
