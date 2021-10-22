@@ -1,6 +1,6 @@
 #!/bin/sh
-RICEBOXES=$HOME/.local/share/.riceboxes
-SELECTED_BOX=ALPHA
+GENOMES=$HOME/.local/share/.genomees
+SELECTED_GENOME=ALPHA
 AUR_MANAGER=trizen
 EC_RED='\033[0;31m'
 EC_YELLOW='\033[0;33m'
@@ -8,6 +8,7 @@ EC_GREEN='\033[0;32m'
 EC_BLUE='\033[0;34m'
 EC_NC='\033[0m'
 
+#Self explanatory
 check_internet(){
 	if [ "$(ping -c 3 archlinux.org 2>&1 | tail -n 1 | grep rtt)" == "" ]; then
 		echo false
@@ -16,38 +17,41 @@ check_internet(){
 	fi
 }
 
-clone_ricebox(){
+#IF $1 is provided, copies selected_genome to $1 otherwise it copies it to the name_<RANDOM>
+clone_genome(){
 	if [ "$1" == "" ];then
-		name=$SELECTED_BOX"_"$RANDOM
-		if [ ! -d "$RICEBOXES/$name" ];then
-			cp -r $RICEBOXES/$SELECTED_BOX $RICEBOXES/$name
+		name=$SELECTED_GENOME"_"$RANDOM
+		if [ ! -d "$GENOMES/$name" ];then
+			cp -r $GENOMES/$SELECTED_GENOME $GENOMES/$name
 		else
-			while [ ! -d "$RICEBOXES/$name" ];do
-				name=$SELECTED_BOX"_"$RANDOM
+			while [ ! -d "$GENOMES/$name" ];do
+				name=$SELECTED_GENOME"_"$RANDOM
 			done
-			cp -r $RICEBOXES/$SELECTED_BOX $RICEBOXES/$name
+			cp -r $GENOMES/$SELECTED_GENOME $GENOMES/$name
 		fi
-		echo $SELECTED_BOX cloned as $name
+		echo $SELECTED_GENOME cloned as $name
 	else
-		if [ ! -d "$RICEBOXES/$1" ];then
-			cp -r $RICEBOXES/$SELECTED_BOX $RICEBOXES/$1
+		if [ ! -d "$GENOMES/$1" ];then
+			cp -r $GENOMES/$SELECTED_GENOME $GENOMES/$1
 		else
 			echo Error: $1 already exists
 		fi
-		echo $SELECTED_BOX cloned as $1
+		echo $SELECTED_GENOME cloned as $1
 	fi
 }
 
-select_ricebox(){
+#Self explanatory: selects genome to be manipulated
+select_genome(){
 	if [ "$1" == "" ];then
-		ls -1 $RICEBOXES | grep -v MATRIX
-		read -p "Name of the box to select?: " a
+		ls -1 $GENOMES | grep -v MATRIX
+		read -p "Name of the genome to select?: " a
 	else 
 		a=$1
 	fi
-	[ -d "$RICEBOXES/$a" ] && sed -i 's/^SELECTED_BOX=.*$/SELECTED_BOX='$a'/' $HOME/.local/share/bin/rw
+	[ -d "$GENOMES/$a" ] && sed -i 's/^SELECTED_GENOME=.*$/SELECTED_GENOME='$a'/' $HOME/.local/share/bin/rw
 }
 
+#Self explanatory
 set_aur(){
 	if [ "$1" == "" ];then
 		read -p "Name of the AUR manager to use?: " a
@@ -57,51 +61,58 @@ set_aur(){
 	sed -i 's/^AUR_MANAGER=.*$/AUR_MANAGER='$a'/' $HOME/.local/share/bin/rw
 }
 
-create_new_ricebox(){
+#Create (and sets to ) a new genome. if no $1 is provided you will prompted for a name 
+create_new_genome(){
 	if [ "$1" == "" ];then
-		read -p "Name of the new box?: " a
+		read -p "Name of the new genome?: " a
 		
 	else
 		a=$1
 	fi
-	mkdir $RICEBOXES/$a
-	#TODO: Update Selected box
-	select_ricebox $a
+	mkdir $GENOMES/$a
+	#TODO: Update Selected genome
+	select_genome $a
 }
 
-delete_ricebox(){
+#self explanatory
+delete_genome(){
 	if [ "$1" == "" ];then
-		ls -1 $RICEBOXES | grep -v MATRIX
-		read -p "Name of the box to delete?: " a
+		ls -1 $GENOMES | grep -v MATRIX
+		read -p "Name of the genome to delete?: " a
 	else 
 		a=$1
 	fi
-	rm -rf $RICEBOXES/$a
-	select_ricebox $a
+	rm -rf $GENOMES/$a
+	select_genome $a
 }
 
-print_ricebox(){
+#print currently available genomes in the genomes folder. Selected genome will be prepended with a star
+print_genome(){
 	while read -r a;do
-		box=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
+		genome=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
 		#TODO: Box info
-		if [ "$box" == "$SELECTED_BOX" ]; then
-			echo "*" $box
+		if [ "$genome" == "$SELECTED_GENOME" ]; then
+			echo "*" $genome
 		else
-			echo $box
+			echo $genome
 		fi
-	done <<< $(find $RICEBOXES -maxdepth 1 -type d | tail -n +2)
+	done <<< $(find $GENOMES -maxdepth 1 -type d | tail -n +2)
 }
 
-list_box_items(){
+#list the selected genome's genes
+#if "i" is provided as $1, print each genes' details
+#if "m" is provided as $1, print only the genes and genome link Map
+#if no $1 is provided (or isnt i or m), print only genes, nothing else
+list_genes(){
 	if [ "$1" == "m" ];then
-		echo $SELECTED_BOX:
-		find $RICEBOXES/$SELECTED_BOX/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,'
+		echo $SELECTED_GENOME:
+		find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,'
 		echo "###LINK MAP###"
-		cat $RICEBOXES/$SELECTED_BOX/LinkMap
+		cat $GENOMES/$SELECTED_GENOME/LinkMap
 	elif [ "$1" == "i" ];then
 		if [ "$2" == "" ];then
 			while read -r a;do
-				echo -n $SELECTED_BOX" -- "
+				echo -n $SELECTED_GENOME" -- "
 				echo $a | sed 's,^.*/\(.*\)$,\1,'
 				if [ -f $a/FileMap ];then
 				       	echo FileMap: 
@@ -124,10 +135,10 @@ list_box_items(){
 				if [ -d $a/Files ];then
 					echo $(ls -1 $a/Files | wc -l) Files
 				fi
-			done <<< $(find $RICEBOXES/$SELECTED_BOX/ -type d | tail -n +2)
+			done <<< $(find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2)
 		else
-			a=`find $RICEBOXES/$SELECTED_BOX/ -type d | tail -n +2 | grep $2`
-			echo -n $SELECTED_BOX" -- "
+			a=`find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | grep $2`
+			echo -n $SELECTED_GENOME" -- "
 			echo $a | sed 's,^.*/\(.*\)$,\1,'
 			if [ -f $a/FileMap ];then
 			       	echo FileMap: 
@@ -151,75 +162,60 @@ list_box_items(){
 				echo $(ls -1 $a/Files | wc -l) Files
 			fi
 		fi
-	elif [ "$1" == "s" ];then
-		while read -r a;do
-			#a="$(echo $a | sed 's,^.*/\(.*\)$,\1,')"
-			echo -n $a | sed 's,^.*/\(.*\)$,\1\t,'
-			if [ -f $a/FileMap ];then
-				echo -n "F:$(cat "$a"/FileMap | wc -l) "
-			fi
-			if [ -f $a/DepMap ];then
-				echo -n "D:$(cat "$a"/DepMap | wc -l) "
-			fi
-			if [ -f $a/ExecMap ];then
-				echo -n "E:$(cat "$a"/ExecMap | wc -l) "
-			fi
-			if [ -d $a/Files ];then
-				echo $(ls -1 $a/Files | wc -l) Files
-			fi
-			if [ ! -d $a/Files ] && [ ! -f $a/ExecMap ] && [ ! -f $a/DepMap ] && [ ! -f $a/FileMap ];then
-				echo !!! NC !!!!!
-			else
-				echo
-			fi
-		done <<< $(find $RICEBOXES/$SELECTED_BOX/ -type d | tail -n +2)
 	else
-		find $RICEBOXES/$SELECTED_BOX/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,;s/\;.$//'
+		find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,;s/\;.$//'
 	fi
 }
 
-grab_full_item(){
+#Grabs the <package name>;<A=AUR manager,P=Pacman,N=None> item name given a simple package name as $1 (used in several functions below and utilises list_genes m)
+grab_full_gene(){
 	while read -r b; do
 		if [ "$(echo $b | sed 's/\;.$//')" == "$1" ];then
 			echo $b
 		fi
-	done <<< $(list_box_items m)
+	done <<< $(list_genes m)
 }
 
-grab_full_dep(){
-	if [ -f $RICEBOXES/$SELECTED_BOX/$1/DepMap ];then
+#Given a full gene name as $1 (<package;[api]) and another SIMPLE (package) gene name as $2, returns $2's full name <package>;[apn]
+grab_full_gene_dep(){
+	if [ -f $GENOMES/$SELECTED_GENOME/$1/DepMap ];then
 		while read -r b;do
 			if [ "$(echo $b | sed 's/\;.$//')" == "$2" ];then
 				echo $b
 			fi
-		done <<< $( cat $RICEBOXES/$SELECTED_BOX/$1/DepMap )
+		done <<< $( cat $GENOMES/$SELECTED_GENOME/$1/DepMap )
 	fi
 }
 
+
+#Deletes links from currently selected genome that matches the set $1 (full or simple) but ONLY if at the end of the chain
 remove_link(){
 	to_remove=`echo $1 | sed 's/;[apn]$//'`
 	while read -r a;do
 		if [ ! "$(echo $a | grep -o "^.*$to_remove;[apn]$")" == "" ];then
-			sed -i '/'$a'/d' $RICEBOXES/$SELECTED_BOX/LinkMap
+			sed -i '/'$a'/d' $GENOMES/$SELECTED_GENOME/LinkMap
 		fi
-	done <<< $(cat $RICEBOXES/$SELECTED_BOX/LinkMap)	
+	done <<< $(cat $GENOMES/$SELECTED_GENOME/LinkMap)	
 	
 }
 
-remove_orphaned_link(){
+#Deletes links from currently selected genome that matches the set $1 (full or simple) that are orphaned (unlinked,designated by a starting star)
+remove_orphaned_gene_link(){
 	to_remove=`echo $1 | sed 's/;[apn]$//'`
 	while read -r a;do
 		if [ ! "$(echo $a | grep -o "^*.*$to_remove;[apn]$")" == "" ];then
-			sed -i '/'$a'/d' $RICEBOXES/$SELECTED_BOX/LinkMap
+			sed -i '/'$a'/d' $GENOMES/$SELECTED_GENOME/LinkMap
 		fi
-	done <<< $(cat $RICEBOXES/$SELECTED_BOX/LinkMap)	
+	done <<< $(cat $GENOMES/$SELECTED_GENOME/LinkMap)	
 	
 }
 
+#Replaces the regular '~' with the home path
 parse_relpath(){
 	echo $1 | sed 's,~,'$HOME','
 }
 
+#Writing a gene essentially consists of pulling relevant files from the gene's FileMap to a folder named files
 write_gene(){
 	while read -r b;do
 		if [ "$b" == "FileMap" ];then
@@ -248,31 +244,34 @@ write_gene(){
 	done <<< $(ls $1)
 }
 
-seal_ricebox(){
+#Seals a genome for incubation which consists of cloning the selected genome to $1 (or NAME_DATE_TIMESTAMP or $1 isnt provided) and selecting it 
+#and writting each genes
+seal_genome(){
 	if [ "$1" == "" ];then
 		seal_ver=`date +%d%m%y_%s`
 	else
 		seal_ver="$1"
 	fi
-	old_sb=$SELECTED_BOX
-	clone_ricebox $SELECTED_BOX"_"$seal_ver
-	SELECTED_BOX=$SELECTED_BOX"_"$seal_ver
-	echo $SELECTED_BOX
+	old_sb=$SELECTED_GENOME
+	clone_genome $SELECTED_GENOME"_"$seal_ver
+	SELECTED_GENOME=$SELECTED_GENOME"_"$seal_ver
+	echo $SELECTED_GENOME
 	while read -r a;do
 		if [ ! "$a" == "" ];then
 			write_gene $a
 		fi
-	done <<< $(find $RICEBOXES/$SELECTED_BOX -type d )
+	done <<< $(find $GENOMES/$SELECTED_GENOME -type d )
 	if [ ! "$2" == "" ];then
-		mv $RICEBOXES/$SELECTED_BOX "$2"
+		mv $GENOMES/$SELECTED_GENOME "$2"
 		echo Wrote Rice Genome to $2
 	else
-		mv $RICEBOXES/$SELECTED_BOX "$HOME"
+		mv $GENOMES/$SELECTED_GENOME "$HOME"
 		echo Wrote Rice Genome to $HOME
 	fi
-	select_ricebox $old_sb
+	select_genome $old_sb
 }
 
+#Potential most complicated function in the whole file. Parse genome specific commands
 parse_rice_command(){
 	c=$1
 	subc=`echo $2 | sed 's/^\(.\).*$/\1/'`
@@ -288,9 +287,9 @@ parse_rice_command(){
 					a=$3
 				fi
 				if [ "$install" == "y" ];then
-					sudo pacman -S --noconfirm $a && mkdir $RICEBOXES/$SELECTED_BOX/$a\;$manager && echo *$a\;$manager >> $RICEBOXES/$SELECTED_BOX/LinkMap
+					sudo pacman -S --noconfirm $a && mkdir $GENOMES/$SELECTED_GENOME/$a\;$manager && echo *$a\;$manager >> $GENOMES/$SELECTED_GENOME/LinkMap
 				else
- 					mkdir $RICEBOXES/$SELECTED_BOX/$a\;$manager && echo *$a\;$manager && echo *$a\;$manager >> $RICEBOXES/$SELECTED_BOX/LinkMap
+ 					mkdir $GENOMES/$SELECTED_GENOME/$a\;$manager && echo *$a\;$manager && echo *$a\;$manager >> $GENOMES/$SELECTED_GENOME/LinkMap
 				fi
 			elif [ "$manager" == "a" ];then
 				if [ "$3" == "" ]; then
@@ -299,9 +298,9 @@ parse_rice_command(){
 					a=$3
 				fi
 				if [ "$install" == "y" ];then
-					$AUR_MANAGER --noconfirm -S $a && mkdir $RICEBOXES/$SELECTED_BOX/$a\;$manager && echo *$a\;$manager >> $RICEBOXES/$SELECTED_BOX/LinkMap
+					$AUR_MANAGER --noconfirm -S $a && mkdir $GENOMES/$SELECTED_GENOME/$a\;$manager && echo *$a\;$manager >> $GENOMES/$SELECTED_GENOME/LinkMap
 				else
-					mkdir $RICEBOXES/$SELECTED_BOX/$a\;$manager && echo *$a\;$manager >> $RICEBOXES/$SELECTED_BOX/LinkMap
+					mkdir $GENOMES/$SELECTED_GENOME/$a\;$manager && echo *$a\;$manager >> $GENOMES/$SELECTED_GENOME/LinkMap
 				fi
 			elif [ "$manager" == "n" ];then
 				if [ "$3" == "" ]; then
@@ -309,14 +308,14 @@ parse_rice_command(){
 				else
 					a=$3
 				fi
-				mkdir $RICEBOXES/$SELECTED_BOX/$a\;$manager && echo *$a\;$manager >> $RICEBOXES/$SELECTED_BOX/LinkMap
+				mkdir $GENOMES/$SELECTED_GENOME/$a\;$manager && echo *$a\;$manager >> $GENOMES/$SELECTED_GENOME/LinkMap
 			fi
 		elif [ "$subc" == "e" ];then
 			if [ "$3" == "" ];then
 				read -p "Item to add command to?: " a
-				i=`grab_full_item $a`	
+				i=`grab_full_gene $a`	
 			else
-				i=`grab_full_item $3`
+				i=`grab_full_gene $3`
 			fi
 			vim /tmp/execcmd
 			t=`echo $subca | sed 's/^\(.\).*$/\1/'`
@@ -324,11 +323,11 @@ parse_rice_command(){
 			if [ -f "/tmp/execcmd" ];then
 				while read -r a; do
 					if [ "$t" == "p" ];then
-						echo p\;$a >> $RICEBOXES/$SELECTED_BOX/$i/ExecMap
+						echo p\;$a >> $GENOMES/$SELECTED_GENOME/$i/ExecMap
 					elif [ "$t" == "i" ];then
-						echo i\;$a >> $RICEBOXES/$SELECTED_BOX/$i/ExecMap
+						echo i\;$a >> $GENOMES/$SELECTED_GENOME/$i/ExecMap
 					elif [ "$t" == "P" ];then
-						echo P\;$a >> $RICEBOXES/$SELECTED_BOX/$i/ExecMap
+						echo P\;$a >> $GENOMES/$SELECTED_GENOME/$i/ExecMap
 					fi
 					if [ "$e" == "y" ];then
 						$a
@@ -338,11 +337,11 @@ parse_rice_command(){
 			fi
 		elif [ "$subc" == "f" ];then
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "item to link file to: " a
-				item=`grab_full_item $a`	
+				item=`grab_full_gene $a`	
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 			fi
 			if [ "$4" == "" ];then
 				read -p "origin filename: " b
@@ -360,20 +359,20 @@ parse_rice_command(){
 				perm=764
 			fi
 			if [ "$subca" == "r" ];then
-				echo "root:root;$perm;$a->$b" >> $RICEBOXES/$SELECTED_BOX/$item/FileMap
+				echo "root:root;$perm;$a->$b" >> $GENOMES/$SELECTED_GENOME/$item/FileMap
 			elif [ "$subca" == "u" ];then
-				echo "USER:USER;$perm;$a->$b" >> $RICEBOXES/$SELECTED_BOX/$item/FileMap
+				echo "USER:USER;$perm;$a->$b" >> $GENOMES/$SELECTED_GENOME/$item/FileMap
 			fi		
 		elif [ "$subc" == "d" ];then
 			manager=`echo $subca | sed 's/^\(.\).*$/\1/'`
 			install=`echo $subca | sed 's/^.\(.*\)$/\1/'`
 
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "item to add dep to?: " a
-				item=`grab_full_item $a`	
+				item=`grab_full_gene $a`	
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 			fi
 			if [ ! "$item" == "" ];then
 				if [ "$4" == "" ];then
@@ -382,7 +381,7 @@ parse_rice_command(){
 				else
 					dep="$4"
 				fi
-				echo "$dep;$manager" >> $RICEBOXES/$SELECTED_BOX/$item/DepMap
+				echo "$dep;$manager" >> $GENOMES/$SELECTED_GENOME/$item/DepMap
 				if [ "$install" == "y" ];then
 					sudo pacman --noconfirm -S $dep
 				fi
@@ -393,45 +392,45 @@ parse_rice_command(){
 	elif [ "$c" == "e" ];then
 		if [ "$subc" == "f" ];then
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "Which Item's FileMap do you want to edit?: " a
-				item=`grab_full_item $a`
+				item=`grab_full_gene $a`
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 			fi
-			vim $RICEBOXES/$SELECTED_BOX/$item/FileMap
+			vim $GENOMES/$SELECTED_GENOME/$item/FileMap
 		elif [ "$subc" == "e" ];then
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "Which Item's ExecMap do you want to edit?: " a
-				item=`grab_full_item $a`
+				item=`grab_full_gene $a`
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 			fi
-			vim $RICEBOXES/$SELECTED_BOX/$item/ExecMap
+			vim $GENOMES/$SELECTED_GENOME/$item/ExecMap
 		elif [ "$subc" == "d" ];then
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "Which Item's DepMap do you want to edit?: " a
-				item=`grab_full_item $a`
+				item=`grab_full_gene $a`
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 			fi
-			vim $RICEBOXES/$SELECTED_BOX/$item/DepMap
+			vim $GENOMES/$SELECTED_GENOME/$item/DepMap
 		elif [ "$subc" == "n" ];then
 			if [ "$subca" == "r" ];then
-				read -p "New name for $SELECTED_BOX?: " a
-				while [ -d "$RICEBOXES/$a" ];do
+				read -p "New name for $SELECTED_GENOME?: " a
+				while [ -d "$GENOMES/$a" ];do
 					read -p "$a already exists: " a
 				done
-				mv $RICEBOXES/$SELECTED_BOX $RICEBOXES/$a
-				select_ricebox $a
+				mv $GENOMES/$SELECTED_GENOME $GENOMES/$a
+				select_genome $a
 			fi
 		fi
 	elif [ "$c" == "r" ];then
 		uninstall=`echo $subca | sed 's/^.*\(.\)$/\1/'`
 		if [ "$subc" == "i" ];then
-			list_box_items
+			list_genes
 			if [ "$3" == "" ];then
 				read -p "Item to remove?: " a
 			else
@@ -439,62 +438,62 @@ parse_rice_command(){
 			fi
 			while read -r b; do
 				if [ "$(echo $b | sed 's/\;.$//')" == "$a" ];then
-					rm -rf $RICEBOXES/$SELECTED_BOX/$b
+					rm -rf $GENOMES/$SELECTED_GENOME/$b
 					if [ "$uninstall" == "y" ];then
 					       sudo pacman -Rns --noconfirm $a
 				       	fi	       
 					remove_link $b
 				fi
-			done <<< $(list_box_items m)
+			done <<< $(list_genes m)
 		elif [ "$subc" == "d" ];then
 			uninstall=`echo $subca | sed 's/^.*\(.\)$/\1/'`
 			if [ "$3" == "" ];then
-				list_box_items
+				list_genes
 				read -p "Item to remove dep from?: " a
-				item=`grab_full_item $a`	
+				item=`grab_full_gene $a`	
 			else
-				item=`grab_full_item $3`
+				item=`grab_full_gene $3`
 
 			fi
-			if [ -f $RICEBOXES/$SELECTED_BOX/$item/DepMap ];then
+			if [ -f $GENOMES/$SELECTED_GENOME/$item/DepMap ];then
 				while read -r b;do
 					printf "$( echo $b | sed 's/\(.*\)\;[apn]$/\1/')"'\n'
-				done <<< $( cat $RICEBOXES/$SELECTED_BOX/$item/DepMap )
+				done <<< $( cat $GENOMES/$SELECTED_GENOME/$item/DepMap )
 			fi
 			read -p "Dep to remove?: " a
-			sed -i '/'"$a"'/d' $RICEBOXES/$SELECTED_BOX/$item/DepMap
-			if ! grep -q '[^[:space:]]' < $RICEBOXES/$SELECTED_BOX/$item/DepMap;then
-				rm $RICEBOXES/$SELECTED_BOX/$item/DepMap
+			sed -i '/'"$a"'/d' $GENOMES/$SELECTED_GENOME/$item/DepMap
+			if ! grep -q '[^[:space:]]' < $GENOMES/$SELECTED_GENOME/$item/DepMap;then
+				rm $GENOMES/$SELECTED_GENOME/$item/DepMap
 			fi
 		fi
 	elif [ "$c" == "l" ];then
 		if [ ! "$subc" == "b" ];then
 			if [ "$subc" == "r" ];then
 				if [ "$3" == "" ];then
-					cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep "*" 
+					cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "*" 
 					read -p "Item to link to Root?: " a
-					item=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o "*$a;[apn].*" | sed 's/*//g'`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o "*$a;[apn].*" | sed 's/*//g'`
 				else
-					item=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o "*$3;[apn].*" | sed 's/*//g'`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o "*$3;[apn].*" | sed 's/*//g'`
 				fi
 				chain="R"
 				newchain=`echo $chain::$item`
 			else
 				if [ "$3" == "" ];then
-					cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -v "*" 
+					cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -v "*" 
 					read -p "Chain to link item to (last item in the chain)?: " a
-					chain=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o ".*$a;[apn]\$"`
+					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$a;[apn]\$"`
 				else
-					chain=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o ".*$3;[apn]\$"`
+					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$3;[apn]\$"`
 				fi
 				echo "$chain"
 
 				if [ "$4" == "" ];then
-					cat $RICEBOXES/$SELECTED_BOX/LinkMap 
+					cat $GENOMES/$SELECTED_GENOME/LinkMap 
 					read -p "Item to link?: " a
-					item=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep "$a" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$a" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
 				else
-					item=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep "$4" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$4" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
 				fi
 				echo "$item has been set"
 			fi
@@ -503,47 +502,50 @@ parse_rice_command(){
 			else
 				if [ "$(echo "$chain")" == "1" ];then
 					newchain=`echo $chain::$item`
-					remove_orphaned_link $item
-					echo $newchain >> $RICEBOXES/$SELECTED_BOX/LinkMap
+					remove_orphaned_gene_link $item
+					echo $newchain >> $GENOMES/$SELECTED_GENOME/LinkMap
 				else
 					while read -r a; do
 						newchain=`echo $a::$item`
-						echo $newchain >> $RICEBOXES/$SELECTED_BOX/LinkMap
+						echo $newchain >> $GENOMES/$SELECTED_GENOME/LinkMap
 					done <<<$(echo "$chain")
-					remove_orphaned_link $item
+					remove_orphaned_gene_link $item
 				fi
 			fi
-			sort $RICEBOXES/$SELECTED_BOX/LinkMap >> $RICEBOXES/$SELECTED_BOX/LinkMapTMP
-			rm $RICEBOXES/$SELECTED_BOX/LinkMap
-			cp $RICEBOXES/$SELECTED_BOX/LinkMapTMP $RICEBOXES/$SELECTED_BOX/LinkMap
-			rm $RICEBOXES/$SELECTED_BOX/LinkMapTMP
+			sort $GENOMES/$SELECTED_GENOME/LinkMap >> $GENOMES/$SELECTED_GENOME/LinkMapTMP
+			rm $GENOMES/$SELECTED_GENOME/LinkMap
+			cp $GENOMES/$SELECTED_GENOME/LinkMapTMP $GENOMES/$SELECTED_GENOME/LinkMap
+			rm $GENOMES/$SELECTED_GENOME/LinkMapTMP
 		else
 			if [ "$3" == "" ];then
-				cat $RICEBOXES/$SELECTED_BOX/LinkMap 
+				cat $GENOMES/$SELECTED_GENOME/LinkMap 
 				read -p "Item to break at (Between it and it's parent)?: " a
-				breakpoint=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o ".*$a;[apn].*"`
+				breakpoint=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$a;[apn].*"`
 			else
-				breakpoint=`cat $RICEBOXES/$SELECTED_BOX/LinkMap | grep -o ".*$3;[apn].*"`
+				breakpoint=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$3;[apn].*"`
 			fi
 			while read -r b;do
-				sed -i '/'$b'/d' $RICEBOXES/$SELECTED_BOX/LinkMap 
-				echo $b | sed 's/^R::.*\('$3'\;[apn].*\)/*\1/' >> $RICEBOXES/$SELECTED_BOX/LinkMap 
+				sed -i '/'$b'/d' $GENOMES/$SELECTED_GENOME/LinkMap 
+				echo $b | sed 's/^R::.*\('$3'\;[apn].*\)/*\1/' >> $GENOMES/$SELECTED_GENOME/LinkMap 
 			done <<< $( echo "$breakpoint" )
-			cp $RICEBOXES/$SELECTED_BOX/LinkMap $RICEBOXES/$SELECTED_BOX/LinkMapTmp
-			rm -rf $RICEBOXES/$SELECTED_BOX/LinkMap 
-			cat $RICEBOXES/$SELECTED_BOX/LinkMapTmp | uniq > $RICEBOXES/$SELECTED_BOX/LinkMap
+			cp $GENOMES/$SELECTED_GENOME/LinkMap $GENOMES/$SELECTED_GENOME/LinkMapTmp
+			rm -rf $GENOMES/$SELECTED_GENOME/LinkMap 
+			cat $GENOMES/$SELECTED_GENOME/LinkMapTmp | uniq > $GENOMES/$SELECTED_GENOME/LinkMap
 		fi
 	fi
 }
 
+#Locks are the root of any chain (either A or R) and this function simply removes them (based on $1)
 release_locks(){
 	sed -i "s/^"$2"::\(.*\)$/\1/" $1
 }
 
+#check if a given chain at $1 has a parent at $2
 has_parent(){
 	[ "$(echo $1 | sed 's/^\(.\+\)'$2'.*$/\1/;s/^'$2'.*//')" == "" ] && echo false || echo true
 }
 
+#Check all chains set by $2 to see if they have parents. If all of them dont, echo true otherwise echo false
 check_chains(){
 	to_process="true"
 	while read -r a;do
@@ -554,20 +556,28 @@ check_chains(){
 	echo $to_process
 }
 
+#Checks if a given chain set by $1 has no parents or childs
 lone_chain(){
 	[ "$(echo $1 | awk 'BEGIN { FS="::" } { print NF }')" == "1" ] && echo true || echo false
 }
 
+#removes any instance of $2 in the chain from the chain and deletes chains whichs only contains $2
 update_linkmap(){
 	sed -i 's/^'$2'::\(.*\)/\1/;/^'$2'$/d' $1
 	sed -i '/[[:space:]].*/d' $1
 }
+
+#gets the manager part of a full item name
 get_item_m(){
 	echo "$1" | awk 'BEGIN { FS=";" } { print $2 }'
 }
+
+#gets the name part of a full item name
 get_item_n(){
 	echo "$1" | awk 'BEGIN { FS=";" } { print $1 }'
 }
+
+#checks wether a given item has Init functions in it's ExecMap
 em_has_ic(){
 	if [ "$(cat $1/ExecMap | grep -e "^i;")" == "" ];then
 		echo false
@@ -576,6 +586,7 @@ em_has_ic(){
 	fi
 }
 
+#Installs an item, used primarily in incubation
 install(){
 	p="$(get_item_n "$1")"
 	manager="$(get_item_m "$1")"
@@ -587,15 +598,17 @@ install(){
 	fi
 }
 
+#exact same as parse_relpath but replaces USER with running user
 parse_ug(){
 	echo "$1" | sed 's/USER/'`whoami`'/g'
 }
 
+#exact same as parse_relpath
 parse_dst(){
 	echo "$1" | sed 's,~,'$HOME','
 }
 
-
+#moves a files from a FileMap entry with the proper ownership and permissions
 move_file(){
 	UG="$(echo $2 | awk 'BEGIN { FS=";" } { print $1 }')"
 	PERMS="$(echo $2 | awk 'BEGIN { FS=";" } { print $2 }')"
@@ -609,16 +622,22 @@ move_file(){
 	sudo chmod "$PERMS" `parse_dst "$DEST"`/$FN
 }
 
+#calls install on every DepMap lines
 depgrow(){
 	while read -r a;do
 		install $a
 	done <<< $(cat $1/DepMap)
 }
+
+#calls move_file on every FileMap lines
 filegrow(){
 	while read -r a;do
 		move_file $1 $a
 	done <<< $(cat $1/FileMap)
 }
+
+#gets every lines starting with $2; and puts the remainder in a predefined script name
+#Then executes the script
 comgrow(){
 	[ "$2" == "p" ] && n="Pre"
 	[ "$2" == "i" ] && n="Init"
@@ -629,7 +648,13 @@ comgrow(){
 	[ -f "$1/ExecMap_$n" ] && sudo chmod +x $1/ExecMap_$n && /bin/sh $1/ExecMap_$n
 }
 
-process_item(){
+#Process each genes in the genomes which entails:
+#PROCESS EXEC_PRE (IF EXISTING)
+#PROCESS DEPS (IF EXISTING)
+#INSTALL ITEM/PROCESS EXEC_INIT if exsisting
+#PROCESS FILES (IF EXISTING)
+#PROCESS EXEC_POST (IF EXISTING)
+process_gene(){
 	ipath=`echo $1 | sed 's/LinkMap//'`
 	echo -e $EC_RED PROCESSING $2 $EC_NC
 	EM_PRE="false"
@@ -694,7 +719,7 @@ process_item(){
 	echo -e $EC_GREEN PROCESSED! $EC_NC
 }
 
-#gets chains that have no parentsa (and therefore ready for processing
+#gets chains that have no parents (and therefore ready for processing)
 process_chains(){
 	#cat $1 | grep -v -e "^A::" -e "^R::"
 	#check if there are chains to process
@@ -706,15 +731,15 @@ process_chains(){
 			#if the current line is a lone chain, there are no other chains similar with a parent and nothing has been processed, process it and set processed to true
 			if [ "$processed" == "false" ] && [ "$(lone_chain $a)" == "true" ] && [ "$(check_chains $1 $a)" == "true" ];then
 				processed_i="$a"
-				process_item $1 $a
+				process_gene $1 $a
 				processed="true"
 			fi
 		done <<< $(cat $1 | grep -v -e "^A::" -e "^R::")
 		[ "$processed" == "true" ] && update_linkmap $1 $processed_i
-		#[ "$processed" == "true" ] && echo UPDATING NEWLY PROCESSED $processed_i
 	done
 }
 
+#Incubate the sealed genome (in other words, install the rice)
 incubate_rice(){
 	if [ "$1" == "" ];then
 		echo No rice to incubate, select a written rice genome folder
@@ -746,69 +771,31 @@ incubate_rice(){
 	fi
 }
 
+#Function to parse the arguments given
 parseArgs(){
 	if [ "$1" == "new" ];then
-		create_new_ricebox $2
+		create_new_genome $2
 	elif [ "$1" == "select" ];then
-		select_ricebox $2
+		select_genome $2
 	elif [ "$1" == "print" ];then
-		print_ricebox
+		print_genome
 	elif [ "$1" == "clone" ];then
-		clone_ricebox $2
+		clone_genome $2
 	elif [ "$1" == "delete" ];then
-		delete_ricebox 
+		delete_genome 
 	elif [ "$1" == "info" ];then
 		if [ ! "$2" == "" ];then
-			list_box_items $2  $3
+			list_genes $2  $3
 		else
-			list_box_items m
+			list_genes m
 		fi
 	elif [ "$1" == "setaur" ];then
 		set_aur $2
 	elif [ "$1" == "seal" ];then
-		seal_ricebox $2
+		seal_genome $2
 	elif [ "$1" == "incubate" ];then
 		incubate_rice $2
-	elif [ ! "$(echo $1 | grep -v -e "print" -e "select" -e "delete" -e "new" -e "clone" )" == "" ];then
-		#RICEBOX COMMANDS
-		#e: edit
-			#n: name
-				#r: ricebox
-				#i: item
-			#e: ExecMap
-			#d: Depmap
-			#f: FileMap
-		#a: add
-			#e: exec
-				#p: pre
-					#y
-				#P: post
-					#y
-				#i: init
-					#y
-			#f: file
-				#r: root owned file
-				#u: user owned file
-			#i: item
-				#p: pacman
-					#y
-				#a: aur
-					#y
-				#n: none
-			#d: dependecy
-				#p: pacman
-					#y
-				#a: aur
-					#y
-				#n: none
-				
-		#r: remove
-			#f: file
-			#i: item
-			#d: dependency
-		#l: link
-			#r: Link to root
-			#b: break chain
+	elif [ ! "$(echo $1 | grep -v -e "print" -e "select" -e "delete" -e "new" -e "clone" )" == "" ];then	
 		c=`echo $1 | sed 's/^\([aerl]\).*$/\1/'`
 		ca=`echo $1 | sed 's/^[aerl]\(.*\)$/\1/'`
 		if [ ! "$ca" == "" ];then
