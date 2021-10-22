@@ -1,5 +1,5 @@
 #!/bin/sh
-GENOMES=$HOME/.local/share/.genomees
+GENOMES=$HOME/.local/share/.riceboxes
 SELECTED_GENOME=ALPHA
 AUR_MANAGER=trizen
 EC_RED='\033[0;31m'
