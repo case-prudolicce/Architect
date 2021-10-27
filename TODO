@@ -1,0 +1,6 @@
+- rw: VALIDATE BASED ON EMPTY (UNCONFIGURED) FOLDERS (ES,EU)
+- rw: VALIDATE BASED ON RETURNING EXECS IF INIT EXECS ARE FOUND (at least one returning) (RS,RU)
+- rw: "rw afuy" == add the file and edit it
+- rw: Extract, Import and Inject
+- rw: rsi (Revert, Switch, Incubate)
+- #rw:995#

@@ -1,12 +1,19 @@
 #!/bin/sh
 GENOMES=$HOME/.local/share/.riceboxes
-SELECTED_GENOME=ALPHA
+SELECTED_GENOME=ALPHA_TEST
 AUR_MANAGER=trizen
 EC_RED='\033[0;31m'
 EC_YELLOW='\033[0;33m'
 EC_GREEN='\033[0;32m'
 EC_BLUE='\033[0;34m'
 EC_NC='\033[0m'
+#Print color codes
+BB_C=$EC_RED
+UU_C=$EC_YELLOW
+US_C=$EC_RED
+VU_C=$EC_GREEN
+VS_C=$EC_BLUE
+
 
 #Self explanatory
 check_internet(){
@@ -42,13 +49,13 @@ clone_genome(){
 
 #Self explanatory: selects genome to be manipulated
 select_genome(){
-	if [ "$1" == "" ];then
+	if [ "$1" == "-" ];then
 		ls -1 $GENOMES | grep -v MATRIX
 		read -p "Name of the genome to select?: " a
 	else 
 		a=$1
 	fi
-	[ -d "$GENOMES/$a" ] && sed -i 's/^SELECTED_GENOME=.*$/SELECTED_GENOME='$a'/' $HOME/.local/share/bin/rw
+	[ -d "$GENOMES/$a" ] && sed -i 's/^SELECTED_GENOME=.*$/SELECTED_GENOME='$a'/' `dirname $2`/rw && export SELECTED_GENOME="$a"
 }
 
 #Self explanatory
@@ -63,39 +70,62 @@ set_aur(){
 
 #Create (and sets to ) a new genome. if no $1 is provided you will prompted for a name 
 create_new_genome(){
-	if [ "$1" == "" ];then
+	if [ "$1" == "-" ];then
 		read -p "Name of the new genome?: " a
 		
 	else
 		a=$1
 	fi
 	mkdir $GENOMES/$a
-	#TODO: Update Selected genome
-	select_genome $a
+	select_genome $a $2
 }
 
 #self explanatory
 delete_genome(){
-	if [ "$1" == "" ];then
+	if [ "$1" == "-" ];then
 		ls -1 $GENOMES | grep -v MATRIX
 		read -p "Name of the genome to delete?: " a
 	else 
 		a=$1
 	fi
 	rm -rf $GENOMES/$a
-	select_genome $a
+	select_genome $a $2
 }
 
 #print currently available genomes in the genomes folder. Selected genome will be prepended with a star
 print_genome(){
 	while read -r a;do
 		genome=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
-		#TODO: Box info
-		if [ "$genome" == "$SELECTED_GENOME" ]; then
-			echo "*" $genome
-		else
-			echo $genome
+		gs=`validate_genome $genome`
+		lh="$(echo $gs | sed 's/\(.\)./\1/')"
+		su="$(echo $gs | sed 's/.\(.\)/\1/')"
+		if [ "$gs" == "BB" ];then
+			echo -ne $BB_C
+		elif [ "$gs" == "US" ];then
+			echo -ne $US_C
+		elif [ "$gs" == "UU" ];then
+			echo -ne $UU_C
+		elif [ "$gs" == "VU" ];then
+			echo -ne $VU_C
+		elif [ "$gs" == "VS" ];then
+			echo -ne $VS_C
 		fi
+		if [ "$genome" == "$SELECTED_GENOME" ]; then
+			echo -n "* " 
+		fi
+		if [ "$su" == "S" ];then
+			echo -n "{ "$genome" }"
+		else
+			echo -n $genome
+		fi
+		if [ "$lh" == "U" ];then
+			echo -n " (UNLINKED)"
+		elif [ "$lh" == "B" ] && [ ! "$gs" == "BB" ];then
+			echo -n " (BROKEN)"
+		elif [ "$gs" == "BB" ];then
+			echo -n " (??????)"
+		fi
+		echo -e $EC_NC
 	done <<< $(find $GENOMES -maxdepth 1 -type d | tail -n +2)
 }
 
@@ -105,10 +135,27 @@ print_genome(){
 #if no $1 is provided (or isnt i or m), print only genes, nothing else
 list_genes(){
 	if [ "$1" == "m" ];then
-		echo $SELECTED_GENOME:
-		find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,'
-		echo "###LINK MAP###"
-		cat $GENOMES/$SELECTED_GENOME/LinkMap
+		echo -e $EC_RED"###$SELECTED_GENOME GENES###"$EC_NC
+		while read -r a;do
+			if [ -f "$a/ExecMap" ];then
+				echo -e $EC_YELLOW"$(echo $a | sed 's,^.*/\(.*\)$,\1,;s/;[apn]//g')"$EC_BLUE" ( p:$(cat $a/ExecMap | grep "^p;" | wc -l) i:$(cat $a/ExecMap | grep "^i;" | wc -l) P:$(cat $a/ExecMap | grep "^P;" | wc -l) r:$(cat $a/ExecMap | grep "^r;" | wc -l) )"$EC_NC
+			else
+				echo -e $EC_YELLOW"$(echo $a | sed 's,^.*/\(.*\)$,\1,;s/;[apn]//g')"$EC_NC
+			fi
+			if [ -f "$a/FileMap" ];then
+				while read -r b;do
+					printf '\t'"$EC_GREEN$( echo $b | awk 'BEGIN { FS=";" } { print $3 }' | awk 'BEGIN { FS="->" } { print $2 }' )/$( echo $b | awk 'BEGIN { FS=";" } { print $3 }' | awk 'BEGIN { FS="->" } { print $1 }' )$EC_NC"'\n'
+				done <<< $(cat "$a/FileMap")
+			elif [ -f "$a/DepMap" ];then
+				while read -r b;do
+					printf "$( echo $b | sed 's/;[apn]//g' )"'\n'
+				done <<< $(cat "$a/DepMap")
+			fi
+		done <<< $( find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sort)
+		echo -e $EC_RED"###$SELECTED_GENOME LINKMAP###"$EC_NC
+		[ ! "`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^A::" | sort`" == "" ] && echo -e $EC_BLUE"`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^A::" | sort`"$EC_NC
+		[ ! "`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^R::" | sort`" == "" ] && echo -e $EC_GREEN"`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^R::" | sort`"$EC_NC
+		[ ! "`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^*" | sort`" == "" ] && echo -e $EC_YELLOW"`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "^*" | sort`"$EC_NC
 	elif [ "$1" == "i" ];then
 		if [ "$2" == "" ];then
 			while read -r a;do
@@ -163,7 +210,7 @@ list_genes(){
 			fi
 		fi
 	else
-		find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,;s/\;.$//'
+		find $GENOMES/$SELECTED_GENOME/ -type d | tail -n +2 | sed 's,^.*/\(.*\)$,\1,'
 	fi
 }
 
@@ -173,7 +220,7 @@ grab_full_gene(){
 		if [ "$(echo $b | sed 's/\;.$//')" == "$1" ];then
 			echo $b
 		fi
-	done <<< $(list_genes m)
+	done <<< $(list_genes)
 }
 
 #Given a full gene name as $1 (<package;[api]) and another SIMPLE (package) gene name as $2, returns $2's full name <package>;[apn]
@@ -247,28 +294,22 @@ write_gene(){
 #Seals a genome for incubation which consists of cloning the selected genome to $1 (or NAME_DATE_TIMESTAMP or $1 isnt provided) and selecting it 
 #and writting each genes
 seal_genome(){
-	if [ "$1" == "" ];then
-		seal_ver=`date +%d%m%y_%s`
-	else
-		seal_ver="$1"
-	fi
+	echo $1 $2
 	old_sb=$SELECTED_GENOME
-	clone_genome $SELECTED_GENOME"_"$seal_ver
-	SELECTED_GENOME=$SELECTED_GENOME"_"$seal_ver
-	echo $SELECTED_GENOME
+	if [ "$1" == "-" ];then
+		seal_full="$old_sb"
+	else
+		seal_full="$1"
+	fi
+	[ ! "$old_sb" == "$seal_full" ] && select_genome "$seal_full" $2
+	
 	while read -r a;do
 		if [ ! "$a" == "" ];then
 			write_gene $a
 		fi
 	done <<< $(find $GENOMES/$SELECTED_GENOME -type d )
-	if [ ! "$2" == "" ];then
-		mv $GENOMES/$SELECTED_GENOME "$2"
-		echo Wrote Rice Genome to $2
-	else
-		mv $GENOMES/$SELECTED_GENOME "$HOME"
-		echo Wrote Rice Genome to $HOME
-	fi
-	select_genome $old_sb
+	[ ! "$old_sb" == "$seal_full" ] && echo Sealed Rice Genome to $seal_full || echo $seal_full has been sealed!
+	[ ! "$old_sb" == "$seal_full" ] && select_genome $old_sb $2
 }
 
 #Potential most complicated function in the whole file. Parse genome specific commands
@@ -418,14 +459,35 @@ parse_rice_command(){
 			fi
 			vim $GENOMES/$SELECTED_GENOME/$item/DepMap
 		elif [ "$subc" == "n" ];then
-			if [ "$subca" == "r" ];then
+			if [ "$subca" == "G" ];then
 				read -p "New name for $SELECTED_GENOME?: " a
 				while [ -d "$GENOMES/$a" ];do
 					read -p "$a already exists: " a
 				done
 				mv $GENOMES/$SELECTED_GENOME $GENOMES/$a
-				select_genome $a
+				select_genome $a $3
+			elif [ "$subca" == "g" ];then
+				if [ "$3" == "" ] || [ "$(grab_full_gene $3)" == "" ];then
+					list_genes | grep ";n$" | sed 's/;[apn]//'
+					read -p "Which gene to rename?: " a
+					item=`grab_full_gene $a`
+				else
+					item=`grab_full_gene $3`
+				fi
+				echo ITEM: $item
+				m="$(echo $item | awk 'BEGIN { FS=";" } { print $2 }')"
+				if [ "$4" == "" ];then
+					read -p "new name: " a
+					name="$a"
+				else
+					name="$4"
+				fi
+				echo NAME: $name
+				mv $GENOMES/$SELECTED_GENOME/$item $GENOMES/$SELECTED_GENOME/$name';'$m
+				sed -i 's/'"$( echo $item | sed 's/;[apn]//')"'/'$name'/' $GENOMES/$SELECTED_GENOME/LinkMap
 			fi
+		elif [ "$subc" == "l" ];then
+			vim $GENOMES/$SELECTED_GENOME/LinkMap
 		fi
 	elif [ "$c" == "r" ];then
 		uninstall=`echo $subca | sed 's/^.*\(.\)$/\1/'`
@@ -444,7 +506,7 @@ parse_rice_command(){
 				       	fi	       
 					remove_link $b
 				fi
-			done <<< $(list_genes m)
+			done <<< $(list_genes)
 		elif [ "$subc" == "d" ];then
 			uninstall=`echo $subca | sed 's/^.*\(.\)$/\1/'`
 			if [ "$3" == "" ];then
@@ -482,18 +544,18 @@ parse_rice_command(){
 				if [ "$3" == "" ];then
 					cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -v "*" 
 					read -p "Chain to link item to (last item in the chain)?: " a
-					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$a;[apn]\$"`
+					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$a;[apn]\$" | head -n 1`
 				else
-					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$3;[apn]\$"`
+					chain=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$3;[apn]\$" | head -n 1`
 				fi
 				echo "$chain"
 
 				if [ "$4" == "" ];then
 					cat $GENOMES/$SELECTED_GENOME/LinkMap 
 					read -p "Item to link?: " a
-					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$a" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$a" | sed 's/^*//g;s/.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
 				else
-					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$4" | sed 's/^*//g;s/^R.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
+					item=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$(grab_full_gene $4)" | sed 's/^*//g;s/.*::\(.*\;[apn]\)$/\1/g' | head -n 1`
 				fi
 				echo "$item has been set"
 			fi
@@ -523,10 +585,11 @@ parse_rice_command(){
 				breakpoint=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$a;[apn].*"`
 			else
 				breakpoint=`cat $GENOMES/$SELECTED_GENOME/LinkMap | grep -o ".*$3;[apn].*"`
+				echo "$breakpoint"
 			fi
 			while read -r b;do
 				sed -i '/'$b'/d' $GENOMES/$SELECTED_GENOME/LinkMap 
-				echo $b | sed 's/^R::.*\('$3'\;[apn].*\)/*\1/' >> $GENOMES/$SELECTED_GENOME/LinkMap 
+				echo $b | sed 's/^.*\('$3'\;[apn].*\)/*\1/' >> $GENOMES/$SELECTED_GENOME/LinkMap 
 			done <<< $( echo "$breakpoint" )
 			cp $GENOMES/$SELECTED_GENOME/LinkMap $GENOMES/$SELECTED_GENOME/LinkMapTmp
 			rm -rf $GENOMES/$SELECTED_GENOME/LinkMap 
@@ -771,18 +834,172 @@ incubate_rice(){
 	fi
 }
 
+genome_status(){
+	genome_status="Nil"
+	
+	while read -r a;do
+		if [ ! "$a" == "$GENOMES/$SELECTED_GENOME" ];then
+			[ -d "$a/Files" ] && [ ! -f "$a/FileMap" ] && genome_status="BROKEN"
+			if [ "$genome_status" == "Nil" ];then
+				if [ -f "$a/FileMap" ];then
+					if [ -d "$a/Files" ];then
+						genome_status="SEALED"
+					else
+						genome_status="UNSEALED"
+					fi
+				fi
+			elif [ "$genome_status" == "SEALED" ];then
+				if [ -f "$a/FileMap" ] && [ ! -d "$a/Files" ];then
+					genome_status="BROKEN"
+				elif [ ! -f "$a/FileMap" ] && [ -d "$a/Files" ];then
+					genome_status="BROKEN"
+				fi
+			elif [ "$genome_status" == "UNSEALED" ];then
+				if [ -d "$a/Files" ];then
+					genome_status="BROKEN"
+				fi
+			fi
+		fi
+	done <<< $(find $GENOMES/$SELECTED_GENOME -type d)
+	echo $genome_status
+}
+
+get_last_child(){
+	echo $1 | sed 's/^.*::\(.*;[apn]\)$/\1/'
+}
+
+get_direct_parent(){
+	echo $1 | sed 's/\([RA]::|*\)\(.*::\)*\(.*\)::'$2'$/\3/'
+}
+
+validate_chain(){
+	lc=`get_last_child $1`
+	dp=`get_direct_parent $1 $lc`
+	if [ "$(cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$dp::$lc$" | wc -l )" == "1" ] || [ "$(cat $GENOMES/$SELECTED_GENOME/LinkMap | grep "$dp::$lc$" | wc -l )" == "0" ];then
+		echo VALID
+	else
+		echo BROKEN
+	fi
+}
+
+validate_linkmap(){
+	linkmap_status="Nil"
+	while read -r a;do
+		#if not broken and is unlinked (starting with *) then set it as UNLINKED
+		[ ! "$linkmap_status" == "BROKEN" ] && [ ! "$(echo $a | grep -o "^*" )" == "" ] && linkmap_status="UNLINKED"
+		#checks if A links do not require a managers otherwise it sets it to BROKEN
+		[ ! "$(echo $a | grep -o "^A::" )" == "" ] && [ ! "$(echo $a | grep -o ";a:*" )" == "" ] && linkmap_status="BROKEN"
+		if [ ! "$linkmap_status" == "BROKEN" ];then
+			linkmap_status=`validate_chain "$a"`
+		fi
+	done <<< $(cat $GENOMES/$SELECTED_GENOME/LinkMap)
+	[ "$linkmap_status" == "Nil" ] && echo VALID || echo $linkmap_status
+}
+
+validate_seal(){
+	seal_status="Nil"
+	while read -r a;do
+		f="$(echo $a | sed 's,^\(.*\)/.*$,\1,g')"
+		while read -r b;do
+			ftc="$(echo $b | awk 'BEGIN { FS=";" } { print $3 }' | awk 'BEGIN { FS="->" } { print $1 }')"
+			[ ! -f "$f/Files/$ftc" ] && [ ! -d "$f/Files/$ftc" ] && seal_status="BROKEN"
+		done <<< $(cat "$a")
+	done <<< $(find $GENOMES/$SELECTED_GENOME -iname FileMap)
+	[ "$seal_status" == "Nil" ] && echo VALID || echo $seal_status
+}
+
+validate_genome(){
+	#CODES:
+	#BB: Beyond Broken (broken at status)
+
+	#LS: Linkmap Sealed (Linkmap is broken)
+	#LU: Linkmap Unsealed (Linkmap is broken
+	
+	#US: Linkmap Sealed (Linkmap is broken)
+	#UU: Linkmap Unsealed (Linkmap is broken
+
+	#BS: Broken Seal
+	#VS: Valid Seal
+
+	#VU: Valid Unsealed
+
+	#BU: Broken Unsealed (not in use atm)
+	if [ ! "$1" == "-" ];then
+		old_genome=$SELECTED_GENOME
+		select_genome $1 $0
+	fi
+	s=`genome_status` #BB,<X>S,<X>U
+	if [ ! "$s" == "BROKEN" ];then
+		lms=`validate_linkmap` #!BB,LS,LU,<X>S,<X>U
+		[ "$lms" == "BROKEN" ] && [ "$s" == "SEALED" ] && echo LS
+		[ "$lms" == "BROKEN" ] && [ "$s" == "UNSEALED" ] && echo LU
+		[ "$lms" == "UNLINKED" ] && [ "$s" == "SEALED" ] && echo US
+		[ "$lms" == "UNLINKED" ] && [ "$s" == "UNSEALED" ] && echo UU
+
+		if [ "$lms" == "VALID" ] && [ "$s" == "SEALED" ];then
+			ss=`validate_seal`
+			[ "$ss" == "VALID" ] && echo VS || echo BS
+		elif [ "$lms" == "VALID" ] && [ "$s" == "UNSEALED" ];then
+			echo VU
+		fi
+	else
+		echo BB
+	fi
+	if [ ! "$1" == "-" ];then
+		select_genome $old_genome $0
+	fi
+}
+
+unseal_genome(){
+	if [ "$1" == "-" ];then
+		while read -r a;do
+			echo $a
+			sudo rm -rf $a
+		done <<< $(find $GENOMES/$SELECTED_GENOME/ -iname Files)
+	else
+		old_genome=$SELECTED_GENOME
+		select_genome $1 $2
+		while read -r a;do
+			sudo rm -rf $a
+		done <<< $(find $GENOMES/$SELECTED_GENOME/ -iname Files)
+		select_genome $old_genome $2
+	fi
+}
+
+export_genome(){
+	if [ "$2" == "" ];then
+		if [ "$1" == "" ];then
+			sudo cp -pr $GENOMES/$SELECTED_GENOME "$HOME"
+			echo -n Exported $SELECTED_GENOME
+		elif [ ! "$1" == "" ];then
+			[ -d "$GENOMES/$1" ] && sudo cp -r $GENOMES/$1 "$HOME"
+			echo -n Exported $1
+		fi
+		echo " "to home.
+	else
+		if [ "$1" == "" ];then
+			sudo cp -pr $GENOMES/$SELECTED_GENOME "$2"
+			echo -n Exported $SELECTED_GENOME
+		elif [ ! "$1" == "" ];then
+			[ -d "$GENOMES/$1" ] sudo cp -r $GENOMES/$1 "$2"
+			echo -n Exported $1
+		fi
+		echo " "to $2.
+	fi 
+}
+
 #Function to parse the arguments given
 parseArgs(){
 	if [ "$1" == "new" ];then
-		create_new_genome $2
+		[ "$2" == "" ] && create_new_genome "-" $0 || create_new_genome $2 $0
 	elif [ "$1" == "select" ];then
-		select_genome $2
+		[ "$2" == "" ] && select_genome "-" $0 || select_genome $2 $0
 	elif [ "$1" == "print" ];then
 		print_genome
 	elif [ "$1" == "clone" ];then
 		clone_genome $2
 	elif [ "$1" == "delete" ];then
-		delete_genome 
+		[ "$2" == "" ] && delete_genome "-" $0 || delete_genome $2 $0
 	elif [ "$1" == "info" ];then
 		if [ ! "$2" == "" ];then
 			list_genes $2  $3
@@ -792,18 +1009,31 @@ parseArgs(){
 	elif [ "$1" == "setaur" ];then
 		set_aur $2
 	elif [ "$1" == "seal" ];then
-		seal_genome $2
+		if [ "$2" == "" ];then 
+			seal_genome "-" $0 
+		else
+			seal_genome $2 $0
+		fi
+	elif [ "$1" == "unseal" ];then
+		[ "$2" == "" ] && unseal_genome "-" $0 || unseal_genome $2 $0
+	elif [ "$1" == "export" ];then
+		#TODO: Make $3 to $2 if $2 is empty
+		export_genome $2 $3
+		#[ "$2" == "" ] && export_genome "-" $0 || unseal_genome $2 $0
+	elif [ "$1" == "validate" ];then
+		[ "$2" == "" ] && validate_genome "-" $0 || validate_genome $2 $0
 	elif [ "$1" == "incubate" ];then
 		incubate_rice $2
 	elif [ ! "$(echo $1 | grep -v -e "print" -e "select" -e "delete" -e "new" -e "clone" )" == "" ];then	
 		c=`echo $1 | sed 's/^\([aerl]\).*$/\1/'`
 		ca=`echo $1 | sed 's/^[aerl]\(.*\)$/\1/'`
 		if [ ! "$ca" == "" ];then
-			parse_rice_command $c $ca $2 $3 $4 $5
+			parse_rice_command $c $ca "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
 		else
-			parse_rice_command $c "-" $2 $3 $4 $5
+			parse_rice_command $c "-" "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
 		fi
 	fi
 }
 
 parseArgs $@
+#validate_linkmap
