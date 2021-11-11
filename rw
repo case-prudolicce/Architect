@@ -1,6 +1,6 @@
 #!/bin/sh
 GENOMES=$HOME/.local/share/.riceboxes
-SELECTED_GENOME=ALPHA_TEST
+SELECTED_GENOME=
 AUR_MANAGER=trizen
 EC_RED='\033[0;31m'
 EC_YELLOW='\033[0;33m'
@@ -52,8 +52,10 @@ select_genome(){
 	if [ "$1" == "-" ];then
 		ls -1 $GENOMES | grep -v MATRIX
 		read -p "Name of the genome to select?: " a
-	else 
+	elif [ ! "$1" == "NONE" ];then
 		a=$1
+	else
+		a=
 	fi
 	[ -d "$GENOMES/$a" ] && sed -i 's/^SELECTED_GENOME=.*$/SELECTED_GENOME='$a'/' `dirname $2`/rw && export SELECTED_GENOME="$a"
 }
@@ -77,6 +79,7 @@ create_new_genome(){
 		a=$1
 	fi
 	mkdir $GENOMES/$a
+	touch $GENOMES/$a/LinkMap
 	select_genome $a $2
 }
 
@@ -146,7 +149,8 @@ list_genes(){
 				while read -r b;do
 					printf '\t'"$EC_GREEN$( echo $b | awk 'BEGIN { FS=";" } { print $3 }' | awk 'BEGIN { FS="->" } { print $2 }' )/$( echo $b | awk 'BEGIN { FS=";" } { print $3 }' | awk 'BEGIN { FS="->" } { print $1 }' )$EC_NC"'\n'
 				done <<< $(cat "$a/FileMap")
-			elif [ -f "$a/DepMap" ];then
+			fi
+			if [ -f "$a/DepMap" ];then
 				while read -r b;do
 					printf "$( echo $b | sed 's/;[apn]//g' )"'\n'
 				done <<< $(cat "$a/DepMap")
@@ -884,15 +888,17 @@ validate_chain(){
 
 validate_linkmap(){
 	linkmap_status="Nil"
-	while read -r a;do
-		#if not broken and is unlinked (starting with *) then set it as UNLINKED
-		[ ! "$linkmap_status" == "BROKEN" ] && [ ! "$(echo $a | grep -o "^*" )" == "" ] && linkmap_status="UNLINKED"
-		#checks if A links do not require a managers otherwise it sets it to BROKEN
-		[ ! "$(echo $a | grep -o "^A::" )" == "" ] && [ ! "$(echo $a | grep -o ";a:*" )" == "" ] && linkmap_status="BROKEN"
-		if [ ! "$linkmap_status" == "BROKEN" ];then
-			linkmap_status=`validate_chain "$a"`
-		fi
-	done <<< $(cat $GENOMES/$SELECTED_GENOME/LinkMap)
+	if [ -f $GENOMES/$SELECTED_GENOME/LinkMap ];then
+		while read -r a;do
+			#if not broken and is unlinked (starting with *) then set it as UNLINKED
+			[ ! "$linkmap_status" == "BROKEN" ] && [ ! "$(echo $a | grep -o "^*" )" == "" ] && linkmap_status="UNLINKED"
+			#checks if A links do not require a managers otherwise it sets it to BROKEN
+			[ ! "$(echo $a | grep -o "^A::" )" == "" ] && [ ! "$(echo $a | grep -o ";a:*" )" == "" ] && linkmap_status="BROKEN"
+			if [ ! "$linkmap_status" == "BROKEN" ];then
+				linkmap_status=`validate_chain "$a"`
+			fi
+		done <<< $(cat $GENOMES/$SELECTED_GENOME/LinkMap)
+	fi
 	[ "$linkmap_status" == "Nil" ] && echo VALID || echo $linkmap_status
 }
 
@@ -946,7 +952,7 @@ validate_genome(){
 		echo BB
 	fi
 	if [ ! "$1" == "-" ];then
-		select_genome $old_genome $0
+		[ ! "$old_genome" == "" ] && select_genome $old_genome $0 || select_genome "NONE" $0
 	fi
 }
 
@@ -966,6 +972,8 @@ unseal_genome(){
 	fi
 }
 
+#1: genome to export
+#2: export directory
 export_genome(){
 	if [ "$2" == "" ];then
 		if [ "$1" == "" ];then
@@ -994,17 +1002,23 @@ parseArgs(){
 		[ "$2" == "" ] && create_new_genome "-" $0 || create_new_genome $2 $0
 	elif [ "$1" == "select" ];then
 		[ "$2" == "" ] && select_genome "-" $0 || select_genome $2 $0
+	elif [ "$1" == "unselect" ];then
+		select_genome "NONE" $0
 	elif [ "$1" == "print" ];then
 		print_genome
 	elif [ "$1" == "clone" ];then
-		clone_genome $2
+		[ ! "$SELECTED_GENOME" == "" ] && echo $SELECTED_GENOME is selected && clone_genome $2 || echo Cannot clone if you have not selected any genomes.
 	elif [ "$1" == "delete" ];then
 		[ "$2" == "" ] && delete_genome "-" $0 || delete_genome $2 $0
 	elif [ "$1" == "info" ];then
-		if [ ! "$2" == "" ];then
-			list_genes $2  $3
+		if [ ! "$SELECTED_GENOME" == "" ];then
+			if [ ! "$2" == "" ];then
+				list_genes $2  $3
+			else
+				list_genes m
+			fi
 		else
-			list_genes m
+			echo You haven\'t selected any genomes.
 		fi
 	elif [ "$1" == "setaur" ];then
 		set_aur $2
@@ -1018,7 +1032,13 @@ parseArgs(){
 		[ "$2" == "" ] && unseal_genome "-" $0 || unseal_genome $2 $0
 	elif [ "$1" == "export" ];then
 		#TODO: Make $3 to $2 if $2 is empty
-		export_genome $2 $3
+		if [ ! "$SELECTED_GENOME" == "" ] && [ "$2" == "" ];then
+			export_genome 
+		elif [ "$SELECTED_GENOME" == "" ] && [ ! "$2" == "" ];then
+			[ "$3" == "" ] && export_genome $2 || export_genome $2 $3
+		else
+			echo No genomes to export and no currently selected genomes.
+		fi
 		#[ "$2" == "" ] && export_genome "-" $0 || unseal_genome $2 $0
 	elif [ "$1" == "validate" ];then
 		[ "$2" == "" ] && validate_genome "-" $0 || validate_genome $2 $0
@@ -1026,11 +1046,15 @@ parseArgs(){
 		incubate_rice $2
 	else
 		c=`echo $1 | sed 's/^\([aerl]\).*$/\1/'`
-		ca=`echo $1 | sed 's/^[aerl]\(.*\)$/\1/'`
-		if [ ! "$ca" == "" ];then
-			parse_rice_command $c $ca "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+		if [ "$c" == "a" ] || [ "$c" == "e" ] || [ "$c" == "r" ] || [ "$c" == "l" ];then
+			ca=`echo $1 | sed 's/^[aerl]\(.*\)$/\1/'`
+			if [ ! "$ca" == "" ];then
+				parse_rice_command $c $ca "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+			else
+				parse_rice_command $c "-" "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+			fi
 		else
-			parse_rice_command $c "-" "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+			echo $1 is not a valid command.
 		fi
 	fi
 }

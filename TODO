@@ -7,3 +7,4 @@
 
 BUGS
 - rw: adding commands and executing them works but doesn't parse
+- rw: when using export; When $2 and $3 is supplied, $3 doesn't work whatsoever
