@@ -4,7 +4,7 @@
 	#1:user 2:pass 3:hostname 4:internet exe to install 
 	#5: uefi status 6: root pass 7: usergroup 8: rw_setup
 	#9: sudo 10: editor 11: dapp 12: rapp
-	#13: Germination Enable/Disable 14: Germination genome 15:(opt) uefi grub entry name
+	#13: Germination Enable/Disable 14: Germination genome 15:(opt) uefi grub entry name 
 
 parseFileMap(){
 	while read -r a; do
@@ -143,10 +143,10 @@ echo $1:$2 | chpasswd
 [ ! "$5" == "true" ] && pacman --noconfirm -S grub $4
 if [ ! "${15}" == "" ];then 
 	echo INSTALLING GRUB
-	grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id="${15}"
+	[ "$5" == "true" ] && grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id="${15}" || grub-install --target=i386-pc /dev/sda
 else
 	echo INSTALLING GRUB
-	grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+	[ "$5" == "true" ] && grub-install --boot-directory=/boot --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB || grub-install --target=i386-pc /dev/sda
 fi
 grub-mkconfig -o /boot/grub/grub.cfg
 

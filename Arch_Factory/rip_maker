@@ -3,4 +3,4 @@ mkdir ../RIP-$1
 cp -r ../Foundation/Foundation* ../RIP-$1/
 cp ../rw ../RIP-$1/
 sudo cp -r ../GERMINATION\ BOXES/BASIC ../RIP-$1
-cp -r "../IMPORTED RICE GENOMES/$2" ../RIP-$1/
+[ ! "$2" == "" ] && cp -r "../IMPORTED RICE GENOMES/$2" ../RIP-$1/

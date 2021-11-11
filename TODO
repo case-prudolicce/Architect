@@ -4,3 +4,6 @@
 - rw: Extract, Import and Inject
 - rw: rsi (Revert, Switch, Incubate)
 - #rw:995#
+
+BUGS
+- rw: adding commands and executing them works but doesn't parse
