@@ -428,7 +428,8 @@ parse_rice_command(){
 				fi
 				echo "$dep;$manager" >> $GENOMES/$SELECTED_GENOME/$item/DepMap
 				if [ "$install" == "y" ];then
-					sudo pacman --noconfirm -S $dep
+					[ "$manager" == "p" ] && sudo pacman --noconfirm -S $dep
+					[ "$manager" == "a" ] && $AUR_MANAGER --noconfirm -S $dep
 				fi
 			else
 				[ "$a" == "" ] && echo $3 not found || echo $a not found
@@ -1049,9 +1050,9 @@ parseArgs(){
 		if [ "$c" == "a" ] || [ "$c" == "e" ] || [ "$c" == "r" ] || [ "$c" == "l" ];then
 			ca=`echo $1 | sed 's/^[aerl]\(.*\)$/\1/'`
 			if [ ! "$ca" == "" ];then
-				parse_rice_command $c $ca "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+				[ ! "$SELECTED_GENOME" == "" ] && parse_rice_command $c $ca "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5 || echo "No genome selected."
 			else
-				parse_rice_command $c "-" "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5
+				[ ! "$SELECTED_GENOME" == "" ] && parse_rice_command $c "-" "$([ "$2" == "" ] && echo $0 || echo $2)" $3 $4 $5 || echo "No genome selected."
 			fi
 		else
 			echo $1 is not a valid command.
