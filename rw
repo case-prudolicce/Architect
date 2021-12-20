@@ -98,37 +98,50 @@ delete_genome(){
 #print currently available genomes in the genomes folder. Selected genome will be prepended with a star
 print_genome(){
 	while read -r a;do
-		genome=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
-		gs=`validate_genome $genome`
-		lh="$(echo $gs | sed 's/\(.\)./\1/')"
-		su="$(echo $gs | sed 's/.\(.\)/\1/')"
-		if [ "$gs" == "BB" ];then
-			echo -ne $BB_C
-		elif [ "$gs" == "US" ];then
-			echo -ne $US_C
-		elif [ "$gs" == "UU" ];then
-			echo -ne $UU_C
-		elif [ "$gs" == "VU" ];then
-			echo -ne $VU_C
-		elif [ "$gs" == "VS" ];then
-			echo -ne $VS_C
-		fi
-		if [ "$genome" == "$SELECTED_GENOME" ]; then
-			echo -n "* " 
-		fi
-		if [ "$su" == "S" ];then
-			echo -n "{ "$genome" }"
+		if [ ! "$1" == "nc" ];then
+			genome=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
+			gs=`validate_genome $genome`
+			lh="$(echo $gs | sed 's/\(.\)./\1/')"
+			su="$(echo $gs | sed 's/.\(.\)/\1/')"
+			if [ "$gs" == "BB" ];then
+				echo -ne $BB_C
+			elif [ "$gs" == "US" ];then
+				echo -ne $US_C
+			elif [ "$gs" == "UU" ];then
+				echo -ne $UU_C
+			elif [ "$gs" == "VU" ];then
+				echo -ne $VU_C
+			elif [ "$gs" == "VS" ];then
+				echo -ne $VS_C
+			fi
+			if [ "$genome" == "$SELECTED_GENOME" ]; then
+				echo -n "* " 
+			fi
+			if [ "$su" == "S" ];then
+				echo -n "{ "$genome" }"
+			else
+				echo -n $genome
+			fi
+			if [ "$lh" == "U" ];then
+				echo -n " (UNLINKED)"
+			elif [ "$lh" == "B" ] && [ ! "$gs" == "BB" ];then
+				echo -n " (BROKEN)"
+			elif [ "$gs" == "BB" ];then
+				echo -n " (??????)"
+			fi
+			echo -e $EC_NC
 		else
+			genome=`echo $a | sed 's,^.*/\(.*\)$,\1,'`
+			gs=`validate_genome $genome`
+			lh="$(echo $gs | sed 's/\(.\)./\1/')"
+			su="$(echo $gs | sed 's/.\(.\)/\1/')"
+			echo -n "[$gs] "
+			if [ "$genome" == "$SELECTED_GENOME" ]; then
+				echo -n "* " 
+			fi
 			echo -n $genome
+			echo -ne "\n"
 		fi
-		if [ "$lh" == "U" ];then
-			echo -n " (UNLINKED)"
-		elif [ "$lh" == "B" ] && [ ! "$gs" == "BB" ];then
-			echo -n " (BROKEN)"
-		elif [ "$gs" == "BB" ];then
-			echo -n " (??????)"
-		fi
-		echo -e $EC_NC
 	done <<< $(find $GENOMES -maxdepth 1 -type d | tail -n +2)
 }
 
@@ -1006,7 +1019,7 @@ parseArgs(){
 	elif [ "$1" == "unselect" ];then
 		select_genome "NONE" $0
 	elif [ "$1" == "print" ];then
-		print_genome
+		print_genome $2
 	elif [ "$1" == "clone" ];then
 		[ ! "$SELECTED_GENOME" == "" ] && echo $SELECTED_GENOME is selected && clone_genome $2 || echo Cannot clone if you have not selected any genomes.
 	elif [ "$1" == "delete" ];then
